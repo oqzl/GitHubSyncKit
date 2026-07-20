@@ -44,9 +44,21 @@ public struct GitHubRepository: Codable, Sendable, Identifiable, Equatable {
 }
 
 public struct GitHubBranch: Codable, Sendable, Equatable {
-    public struct Commit: Codable, Sendable, Equatable { public let sha: String }
+    public struct Commit: Codable, Sendable, Equatable {
+        public let sha: String
+
+        public init(sha: String) {
+            self.sha = sha
+        }
+    }
+
     public let name: String
     public let commit: Commit
+
+    public init(name: String, commit: Commit) {
+        self.name = name
+        self.commit = commit
+    }
 }
 
 public struct GitHubContent: Codable, Sendable, Equatable {

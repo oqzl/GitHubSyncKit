@@ -47,6 +47,49 @@ public actor GitHubClient {
         return items
     }
 
+    /// Returns the branch's current HEAD, including when the name contains `/`.
+    public func branch(owner: String, repository: String, name: String) async throws -> GitHubBranch {
+        struct Response: Decodable {
+            struct Object: Decodable { let sha: String }
+            let object: Object
+        }
+
+        let (response, rate): (Response, GitHubRateLimit) = try await http.request(
+            path: "repos/\(owner)/\(repository)/git/ref/heads/\(name)"
+        )
+        lastRateLimit = rate
+        return GitHubBranch(name: name, commit: .init(sha: response.object.sha))
+    }
+
+    /// Creates `name` from the supplied commit SHA and returns its initial HEAD.
+    public func createBranch(
+        owner: String,
+        repository: String,
+        name: String,
+        fromCommitSHA: String
+    ) async throws -> GitHubBranch {
+        struct Body: Encodable { let ref: String; let sha: String }
+        struct Response: Decodable {
+            struct Object: Decodable { let sha: String }
+            let ref: String
+            let object: Object
+        }
+
+        let cleanName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanName.isEmpty else {
+            throw GitHubSyncError.invalidConfiguration("ブランチ名を入力してください。")
+        }
+
+        let (response, rate): (Response, GitHubRateLimit) = try await http.request(
+            "POST",
+            path: "repos/\(owner)/\(repository)/git/refs",
+            body: Body(ref: "refs/heads/\(cleanName)", sha: fromCommitSHA)
+        )
+        lastRateLimit = rate
+        let createdName = response.ref.replacingOccurrences(of: "refs/heads/", with: "")
+        return GitHubBranch(name: createdName, commit: .init(sha: response.object.sha))
+    }
+
     public func content(owner: String, repository: String, path: String, ref: String? = nil) async throws -> GitHubContent {
         let query = ref.map { [URLQueryItem(name: "ref", value: $0)] } ?? []
         let (value, rate): (GitHubContent, GitHubRateLimit) = try await http.request(path: "repos/\(owner)/\(repository)/contents/\(path)", query: query)
