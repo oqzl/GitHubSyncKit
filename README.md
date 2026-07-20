@@ -2,30 +2,62 @@
 
 [日本語版 README](README.ja.md)
 
-GitHubSyncKit is a Swift GitHub SDK for iOS and macOS. It connects Swift apps to the GitHub REST API and provides GitHub OAuth authentication, writable repository selection, file synchronization, single-file commits, atomic multi-file commits, conflict detection, Keychain token storage, and a SwiftUI repository picker.
+GitHubSyncKit is a Swift GitHub SDK for iOS and macOS. It provides GitHub OAuth authentication, writable repository selection, file reads and writes, single-file commits, atomic multi-file commits, SHA-based conflict detection, Keychain token storage, and a reusable SwiftUI repository picker.
 
-Use GitHubSyncKit to build a Markdown note app backed by GitHub, a repository-based document editor, a configuration sync tool, a static-site content editor, or any iOS and macOS app that reads files from GitHub and commits changes back to a repository.
+Use it to build GitHub-backed Markdown editors, note apps, configuration tools, static-site editors, backup features, and other applications that synchronize local data through Git commits.
 
 ## Highlights
 
 - Swift Package Manager support
 - Swift 6 concurrency and `async/await`
-- GitHub OAuth Device Flow without embedding a client secret
-- GitHub OAuth Web Flow authorization with `ASWebAuthenticationSession` and PKCE
-- Backend token-exchange abstraction for secure Web Flow deployments
+- OAuth Device Flow without embedding a client secret
+- OAuth Web Flow with `ASWebAuthenticationSession` and PKCE
+- Backend token-exchange abstraction for Web Flow
 - Keychain token storage
-- Current GitHub user lookup
-- Writable repository listing, search, and selection
-- Branch listing
-- GitHub Repository Contents API
-- Create, update, and delete files through Git commits
-- Atomic multi-file commits using Git blobs, trees, commits, and refs
-- SHA-based optimistic concurrency and conflict detection
-- Reusable SwiftUI repository picker
+- Writable repository and branch selection
+- Repository Contents API support
+- Atomic multi-file commits through Git blobs, trees, commits, and refs
+- File-SHA and branch-HEAD conflict detection
+- SwiftUI repository picker
 - Reference iOS app and Cloudflare Worker example
 - No third-party runtime dependencies
 
+## Requirements
+
+- Swift 6.0 or later
+- iOS 17 or later
+- macOS 14 or later
+- A GitHub OAuth App
+
+## Installation
+
+Add the package URL in Xcode:
+
+```text
+https://github.com/oqzl/GitHubSyncKit.git
+```
+
+Or add it to `Package.swift`:
+
+```swift
+dependencies: [
+    .package(
+        url: "https://github.com/oqzl/GitHubSyncKit.git",
+        from: "0.1.0"
+    )
+]
+```
+
+Add the core SDK and, optionally, the SwiftUI target:
+
+```swift
+.product(name: "GitHubSyncKit", package: "GitHubSyncKit")
+.product(name: "GitHubSyncKitUI", package: "GitHubSyncKit")
+```
+
 ## Quick start
+
+Authentication must be completed first. The following example selects a writable repository and creates a new file:
 
 ```swift
 import GitHubSyncKit
@@ -33,9 +65,7 @@ import GitHubSyncKit
 let tokenStore = KeychainTokenStore(service: "com.example.myapp")
 let api = GitHubClient(tokenStore: tokenStore)
 
-let repositories = try await api.repositories(writableOnly: true)
-let repository = repositories[0]
-
+let repository = try await api.repositories(writableOnly: true)[0]
 let destination = GitHubSyncDestination(
     repositoryID: repository.id,
     owner: repository.owner.login,
@@ -54,52 +84,7 @@ try await sync.commitFile(
 )
 ```
 
-Authentication must be completed before creating the API client. See [OAuth authentication](#oauth-authentication).
-
-## Use cases
-
-GitHubSyncKit is designed for applications such as:
-
-- Markdown note apps backed by a GitHub repository
-- GitHub-connected document editors
-- Repository-based backup and synchronization features
-- Static-site and documentation content editors
-- Configuration file managers
-- Apps that generate and commit files to GitHub
-- Lightweight GitHub clients for iOS and macOS
-
-## Requirements
-
-- Swift 6.0 or later
-- iOS 17 or later
-- macOS 14 or later
-- A GitHub OAuth App
-
-## Installation
-
-Add GitHubSyncKit through Xcode's Package Dependencies UI:
-
-```text
-https://github.com/oqzl/GitHubSyncKit.git
-```
-
-Or add it to `Package.swift`:
-
-```swift
-dependencies: [
-    .package(
-        url: "https://github.com/oqzl/GitHubSyncKit.git",
-        from: "0.1.0"
-    )
-]
-```
-
-Add the core SDK or the optional SwiftUI components:
-
-```swift
-.product(name: "GitHubSyncKit", package: "GitHubSyncKit")
-.product(name: "GitHubSyncKitUI", package: "GitHubSyncKit")
-```
+`expectedSHA: nil` is appropriate when creating a file that is known not to exist. It is not an overwrite flag.
 
 ## OAuth authentication
 
@@ -107,28 +92,18 @@ GitHubSyncKit supports two OAuth App configurations.
 
 | Flow | Backend required | Client secret in app | Recommended for |
 |---|---:|---:|---|
-| Device Flow | No | No | Samples, developer tools, apps where device-code UX is acceptable |
-| Web Flow | Yes | No | Consumer-facing iOS and macOS apps |
+| Device Flow | No | No | Samples, developer tools, and serverless personal projects |
+| Web Flow | Yes | No | Consumer-facing iOS and macOS applications |
 
-GitHub's OAuth App Web Flow requires the OAuth client secret when exchanging an authorization code for an access token. PKCE does not remove that GitHub requirement. Never embed a GitHub OAuth client secret in an iOS or macOS application.
+### Client-secret rule
 
-### Create a GitHub OAuth App
+GitHub OAuth App Web Flow requires the OAuth client secret during authorization-code exchange. Never embed that secret in an iOS or macOS binary. PKCE protects the authorization code, but it does not make an embedded client secret confidential.
 
-1. Open GitHub Settings.
-2. Open Developer settings.
-3. Open OAuth Apps and select New OAuth App.
-4. Enter an application name and homepage URL.
-5. Enable Device Flow when using the reference app.
-6. Copy the Client ID into the app configuration.
-7. For Web Flow, register the callback URL used by your app and backend.
+Use Device Flow when a backend is not available. Use Web Flow only with a backend that stores the secret and performs token exchange.
 
 ### Device Flow
 
-Device Flow runs directly in the application and requires only the OAuth Client ID.
-
 ```swift
-import GitHubSyncKit
-
 let oauth = GitHubOAuthConfiguration(
     clientID: "YOUR_CLIENT_ID",
     callbackURL: URL(
@@ -147,9 +122,9 @@ let tokenStore = KeychainTokenStore(service: "com.example.myapp")
 try await tokenStore.saveToken(token)
 ```
 
-### Web Flow with `ASWebAuthenticationSession`
+Device Flow does not use the callback URL, although the configuration type currently contains it.
 
-The SDK obtains an authorization code using `ASWebAuthenticationSession` and PKCE. Your backend then exchanges the temporary code while securely storing the GitHub OAuth Client Secret.
+### Web Flow
 
 ```swift
 let exchanger = BackendOAuthTokenExchanger(
@@ -165,39 +140,15 @@ let token = try await authorizer.authorize(using: exchanger)
 try await tokenStore.saveToken(token)
 ```
 
-Expected backend request:
+A minimal Cloudflare Worker example is included in `Examples/TokenExchangeWorker`.
 
-```json
-{
-  "code": "temporary-code",
-  "redirectURI": "myapp://github/oauth",
-  "codeVerifier": "pkce-code-verifier"
-}
-```
+### Token storage
 
-Expected backend response:
+An OAuth token may grant broad repository access. Store it in `KeychainTokenStore`; do not store it in `UserDefaults`, a plist, source code, logs, crash metadata, or analytics events.
 
-```json
-{
-  "accessToken": "gho_..."
-}
-```
+Signing out should delete the local token. Applications that need remote revocation should also implement the appropriate GitHub revocation flow.
 
-The backend must validate requests, avoid logging codes and tokens, and append its GitHub OAuth Client Secret when calling GitHub's token endpoint.
-
-A minimal Cloudflare Worker implementation is included in `Examples/TokenExchangeWorker`.
-
-## Create a GitHub API client
-
-```swift
-let api = GitHubClient(tokenStore: tokenStore)
-let user = try await api.currentUser()
-let repositories = try await api.repositories(writableOnly: true)
-```
-
-`writableOnly` filters using permissions returned by GitHub. Always handle a later `403 Forbidden` response because repository permissions can change.
-
-## Search and select a repository
+## Repository selection
 
 ```swift
 let repositories = try await api.repositories(writableOnly: true)
@@ -217,33 +168,31 @@ let destination = GitHubSyncDestination(
     branch: repository.defaultBranch,
     directory: "notes"
 )
-
-let sync = GitHubSyncClient(api: api, destination: destination)
 ```
 
-OAuth App scopes cannot technically restrict the access token to one selected repository. GitHubSyncKit restricts its own operations to the configured destination, but the token retains all scopes granted by GitHub. Use a GitHub App or fine-grained personal access token when repository-level token enforcement is required.
+OAuth App scopes cannot technically restrict a token to the selected repository. GitHubSyncKit limits its own operations to the configured destination, but the token retains all granted scopes. Use a GitHub App or fine-grained personal access token when repository-level token enforcement is required.
 
-## Read a file from GitHub
+## Read, create, update, and delete files
+
+Read the remote file before updating it:
 
 ```swift
 let remote = try await sync.getFile(path: "example.md")
 let data = remote.decodedData
 ```
 
-## Create or update a file and commit it
+Update using the SHA returned by that read:
 
 ```swift
 let result = try await sync.commitFile(
     path: "example.md",
-    data: Data("# Example".utf8),
+    data: Data("# Updated".utf8),
     message: "Update example note",
     expectedSHA: remote.sha
 )
 ```
 
-Pass the previously fetched blob SHA when updating. GitHub rejects a stale SHA, allowing the caller to detect concurrent remote changes.
-
-## Delete a file and commit the deletion
+Delete using the current SHA:
 
 ```swift
 let result = try await sync.deleteFile(
@@ -253,7 +202,17 @@ let result = try await sync.deleteFile(
 )
 ```
 
-## Commit multiple files atomically
+### Important SHA semantics
+
+- `expectedSHA: nil` means “create a file expected not to exist.”
+- Updating an existing file requires its current blob SHA.
+- A missing SHA does not silently force-overwrite an existing file; GitHub rejects the request.
+- A stale SHA indicates that the remote file changed after the last read and must be treated as a conflict.
+- Do not automatically retry a conflict as an unconditional overwrite.
+
+## Atomic multi-file commits
+
+Calling the Contents API repeatedly creates one commit per file. Use `commitBatch` when a logical synchronization operation modifies multiple files:
 
 ```swift
 let result = try await sync.commitBatch(
@@ -267,7 +226,70 @@ let result = try await sync.commitBatch(
 )
 ```
 
-Batch commits create Git blobs and a tree, create one Git commit, and update the branch ref without forcing. If `expectedHeadSHA` no longer matches, the SDK throws `GitHubSyncError.conflict` before changing the branch.
+The SDK creates blobs and one tree, creates one commit, and updates the branch ref without forcing. If the branch HEAD changed, the SDK throws `GitHubSyncError.conflict` before moving the ref.
+
+## Production synchronization guidance
+
+GitHubSyncKit provides GitHub operations. Local persistence, scheduling, retry policy, and conflict UX remain application-level responsibilities.
+
+### Use a local-first data model
+
+Save edits to a local database before attempting network synchronization. SwiftData, SQLite, Core Data, or another durable store can be used. A network failure must not discard the user's edit.
+
+A practical flow is:
+
+1. Save the edit locally.
+2. Add a pending synchronization operation.
+3. Attempt GitHub synchronization.
+4. Remove the pending operation only after success.
+5. Keep conflict and authentication failures for explicit resolution.
+
+Offline queue work is tracked in [#2](https://github.com/oqzl/GitHubSyncKit/issues/2).
+
+### Design an explicit conflict UI
+
+The SDK detects conflicts but does not merge file contents automatically. Applications should offer choices appropriate to their data model, such as:
+
+- keep the local version and perform an explicit replacement after confirmation
+- keep the remote version
+- save the local version under another path
+- run an application-specific three-way merge
+
+The reference conflict UI is tracked in [#1](https://github.com/oqzl/GitHubSyncKit/issues/1).
+
+### Do not synchronize on every keystroke
+
+Prefer one or more of these triggers:
+
+- explicit save
+- leaving the editor
+- a debounced idle interval
+- a manual sync button
+- a coalesced background retry when the operating system permits it
+
+Coalesce related changes into one `commitBatch` where possible. This reduces request volume and avoids noisy history.
+
+Rate-limit and scheduling helpers are tracked in [#3](https://github.com/oqzl/GitHubSyncKit/issues/3).
+
+### Handle rate limits as runtime state
+
+The client exposes the latest observed rate-limit headers through `lastRateLimit`. Treat the response headers as authoritative rather than hard-coding one request quota for every endpoint and authentication mode.
+
+Applications should:
+
+- stop nonessential requests when remaining quota is low
+- respect reset information and retry guidance
+- use bounded exponential backoff with jitter for retryable failures
+- avoid automatically retrying authentication, validation, and conflict errors
+- handle secondary-rate-limit responses separately from the primary hourly quota
+
+### Validate file sizes before upload
+
+GitHub limits vary by endpoint and operation. Large images and binary files can fail after Base64 expansion or request construction. Prefer text-first synchronization, compress images, and validate payload size before sending.
+
+For large assets, evaluate Git LFS or external object storage instead of treating the Repository Contents API as a general-purpose blob store.
+
+Preflight validation is tracked in [#4](https://github.com/oqzl/GitHubSyncKit/issues/4).
 
 ## SwiftUI repository picker
 
@@ -293,31 +315,23 @@ Examples/GitHubSyncExample/GitHubSyncExample.xcodeproj
 Then:
 
 1. Replace `YOUR_GITHUB_OAUTH_CLIENT_ID` in `Examples/GitHubSyncExample/Config.xcconfig`.
-2. Select your Development Team in Xcode.
-3. Change the sample Bundle ID to a unique value for your account.
+2. Select your Development Team.
+3. Change the sample Bundle ID to a unique value.
 4. Enable Device Flow in the GitHub OAuth App settings.
-5. Run the app on iOS 17 or later.
+5. Run on iOS 17 or later.
 6. Sign in, select a writable repository, and commit `notes/sample.md`.
 
-The checked-in sample Bundle ID is:
+Checked-in sample Bundle ID:
 
 ```text
 io.github.oqzl.GitHubSyncKitExample
 ```
 
-Before running on a physical device, change it to a unique identifier such as:
-
-```text
-com.example.yourname.GitHubSyncKitExample
-```
-
-The OAuth callback scheme is configured separately:
+OAuth callback scheme:
 
 ```text
 io.github.oqzl.githubsynckit.example
 ```
-
-It is intentionally not derived from the Bundle ID. Developers can therefore change signing identifiers without silently changing OAuth callback behavior. Device Flow does not use the callback URL.
 
 For Web Flow, register:
 
@@ -325,7 +339,7 @@ For Web Flow, register:
 io.github.oqzl.githubsynckit.example://oauth/callback
 ```
 
-For a production app, replace this with a reverse-DNS scheme or universal link that you control.
+The callback scheme is intentionally independent of the Bundle ID. Replace both with identifiers you control in a production application.
 
 ## Error handling
 
@@ -339,35 +353,25 @@ Common errors are represented by `GitHubSyncError`:
 - `rateLimited`
 - `api`
 
-The client exposes the most recently observed GitHub API rate-limit headers through `lastRateLimit`.
-
-## API version
-
-The default GitHub REST API version is `2022-11-28`. Override `GitHubConfiguration.apiVersion` only when intentionally targeting another supported version.
+Classify failures before retrying. Network and some server failures may be retryable. Authentication, validation, and conflict failures normally require user action or new state.
 
 ## Scope and limitations
 
 - OAuth App `repo` scope is broad and cannot be restricted to one repository.
-- Repository search responses may omit permission details; the picker uses `/user/repos` for writable selection.
-- The Repository Contents API creates one commit per file operation.
-- Batch commits use Git database endpoints and do not create pull requests.
-- Binary files are supported subject to GitHub API size limits.
 - The package detects conflicts but does not automatically merge content.
+- The core SDK does not provide a durable offline queue.
+- Background execution is constrained by iOS and cannot be guaranteed on demand.
+- Contents API operations create one commit per file operation.
+- Batch commits do not create pull requests.
+- File and payload limits depend on the selected GitHub endpoint.
 - GitHub Enterprise Server base URLs are configurable but have not been validated by the reference app.
 
-## Why GitHubSyncKit?
+## Roadmap
 
-| Capability | GitHubSyncKit | Raw `URLSession` implementation |
-|---|---:|---:|
-| OAuth Device Flow | Included | Manual |
-| Web Flow integration | Included | Manual |
-| Keychain token storage | Included | Manual |
-| Writable repository picker | Included | Manual |
-| Contents API commits | Included | Manual |
-| Atomic multi-file commits | Included | Complex |
-| SHA conflict detection | Included | Manual |
-| SwiftUI components | Included | Manual |
-| Swift concurrency | Native | Application-defined |
+- [#1 Conflict-resolution sample UI and merge policy hooks](https://github.com/oqzl/GitHubSyncKit/issues/1)
+- [#2 Offline-first sync queue reference implementation](https://github.com/oqzl/GitHubSyncKit/issues/2)
+- [#3 Sync scheduling and rate-limit-aware helpers](https://github.com/oqzl/GitHubSyncKit/issues/3)
+- [#4 File-size validation and large-file guidance](https://github.com/oqzl/GitHubSyncKit/issues/4)
 
 ## Testing
 
@@ -379,18 +383,11 @@ Network behavior is abstracted by `GitHubHTTPTransport`, allowing applications a
 
 ## Contributing
 
-Issues and pull requests are welcome. Before submitting a change:
-
-1. Run `swift test`.
-2. Keep public APIs `Sendable` where practical.
-3. Never commit secrets, access tokens, or local configuration files.
-4. Add tests for API decoding, authentication, and conflict behavior.
-
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+Issues and pull requests are welcome. Run `swift test`, avoid committing credentials, and add tests for behavioral changes. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Security
 
-Do not report security vulnerabilities through public issues. See [SECURITY.md](SECURITY.md).
+Do not report vulnerabilities through public issues. See [SECURITY.md](SECURITY.md).
 
 ## License
 
