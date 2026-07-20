@@ -1,0 +1,10 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "github-sync-kit-token-exchange",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-20",
+  "vars": {
+    "GITHUB_CLIENT_ID": "REPLACE_WITH_CLIENT_ID",
+    "ALLOWED_REDIRECT_URI": "io.github.oqzl.githubsynckit.example://oauth/callback"
+  }
+}
