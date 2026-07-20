@@ -43,6 +43,14 @@ public struct GitHubRepository: Codable, Sendable, Identifiable, Equatable {
     public var canPush: Bool { permissions?.push == true || permissions?.admin == true || permissions?.maintain == true }
 }
 
+public struct GitHubAppInstallation: Codable, Sendable, Identifiable, Equatable {
+    public let id: Int64
+
+    public init(id: Int64) {
+        self.id = id
+    }
+}
+
 public struct GitHubBranch: Codable, Sendable, Equatable {
     public struct Commit: Codable, Sendable, Equatable {
         public let sha: String

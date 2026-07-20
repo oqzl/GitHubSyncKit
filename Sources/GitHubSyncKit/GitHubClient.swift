@@ -31,6 +31,30 @@ public actor GitHubClient {
         return writableOnly ? items.filter(\.canPush) : items
     }
 
+    /// Returns repositories selected for installations that the current user can access.
+    /// This is narrower than `repositories`, which lists the user's repositories.
+    public func installedRepositories(writableOnly: Bool = false) async throws -> [GitHubRepository] {
+        struct InstallationsResponse: Decodable { let installations: [GitHubAppInstallation] }
+        struct RepositoriesResponse: Decodable { let repositories: [GitHubRepository] }
+
+        let (installationsResponse, installationRate): (InstallationsResponse, GitHubRateLimit) = try await http.request(path: "user/installations")
+        lastRateLimit = installationRate
+
+        var repositories: [GitHubRepository] = []
+        for installation in installationsResponse.installations {
+            let (response, rate): (RepositoriesResponse, GitHubRateLimit) = try await http.request(
+                path: "user/installations/\(installation.id)/repositories",
+                query: [.init(name: "per_page", value: "100")]
+            )
+            lastRateLimit = rate
+            repositories.append(contentsOf: response.repositories)
+        }
+
+        let unique = Dictionary(uniqueKeysWithValues: repositories.map { ($0.id, $0) })
+        let result = Array(unique.values).sorted { $0.fullName < $1.fullName }
+        return writableOnly ? result.filter(\.canPush) : result
+    }
+
     public func searchRepositories(query: String, page: Int = 1, perPage: Int = 30, writableOnly: Bool = false) async throws -> [GitHubRepository] {
         struct SearchResponse: Decodable { let items: [GitHubRepository] }
         let (response, rate): (SearchResponse, GitHubRateLimit) = try await http.request(
