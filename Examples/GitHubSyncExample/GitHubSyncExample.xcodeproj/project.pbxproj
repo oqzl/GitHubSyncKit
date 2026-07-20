@@ -1,0 +1,30 @@
+// !$*UTF8*$!
+{
+ archiveVersion = 1;
+ classes = {};
+ objectVersion = 60;
+ objects = {
+  A1 = {isa = PBXProject; attributes = {LastSwiftUpdateCheck = 1600; LastUpgradeCheck = 1600;}; buildConfigurationList = A2; compatibilityVersion = "Xcode 15.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base); mainGroup = A3; packageReferences = (A10); productRefGroup = A4; projectDirPath = ""; projectRoot = ""; targets = (A5);};
+  A2 = {isa = XCConfigurationList; buildConfigurations = (A20, A21); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;};
+  A3 = {isa = PBXGroup; children = (A6, A24, A4); sourceTree = "<group>";};
+  A4 = {isa = PBXGroup; children = (A7); name = Products; sourceTree = "<group>";};
+  A5 = {isa = PBXNativeTarget; buildConfigurationList = A8; buildPhases = (A11, A12, A13); buildRules = (); dependencies = (); name = GitHubSyncExample; packageProductDependencies = (A14, A15); productName = GitHubSyncExample; productReference = A7; productType = "com.apple.product-type.application";};
+  A6 = {isa = PBXFileSystemSynchronizedRootGroup; path = GitHubSyncExample; sourceTree = "<group>";};
+  A7 = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GitHubSyncExample.app; sourceTree = BUILT_PRODUCTS_DIR;};
+  A8 = {isa = XCConfigurationList; buildConfigurations = (A22, A23); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;};
+  A10 = {isa = XCLocalSwiftPackageReference; relativePath = ../..;};
+  A11 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0;};
+  A12 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (A16, A17); runOnlyForDeploymentPostprocessing = 0;};
+  A13 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0;};
+  A14 = {isa = XCSwiftPackageProductDependency; package = A10; productName = GitHubSyncKit;};
+  A15 = {isa = XCSwiftPackageProductDependency; package = A10; productName = GitHubSyncKitUI;};
+  A16 = {isa = PBXBuildFile; productRef = A14;};
+  A17 = {isa = PBXBuildFile; productRef = A15;};
+  A20 = {isa = XCBuildConfiguration; buildSettings = {}; name = Debug;};
+  A21 = {isa = XCBuildConfiguration; buildSettings = {}; name = Release;};
+  A22 = {isa = XCBuildConfiguration; baseConfigurationReference = A24; buildSettings = {CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = GitHubSyncExample/Info.plist; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; TARGETED_DEVICE_FAMILY = 1;}; name = Debug;};
+  A23 = {isa = XCBuildConfiguration; baseConfigurationReference = A24; buildSettings = {CODE_SIGN_STYLE = Automatic; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = GitHubSyncExample/Info.plist; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = iphoneos; TARGETED_DEVICE_FAMILY = 1;}; name = Release;};
+  A24 = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>";};
+ };
+ rootObject = A1;
+}
