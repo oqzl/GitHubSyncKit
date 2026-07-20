@@ -25,7 +25,7 @@ public final class GitHubWebOAuthAuthorizer: NSObject {
             .init(name: "code_challenge", value: challenge), .init(name: "code_challenge_method", value: "S256")
         ]
         guard let url = components.url, let callbackScheme = oauth.callbackURL.scheme else { throw GitHubSyncError.invalidConfiguration("Invalid OAuth callback URL") }
-        let callbackURL = try await withCheckedThrowingContinuation { continuation in
+        let callbackURL = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
             let session = ASWebAuthenticationSession(url: url, callbackURLScheme: callbackScheme) { url, error in
                 if let error { continuation.resume(throwing: error); return }
                 guard let url else { continuation.resume(throwing: GitHubSyncError.invalidResponse); return }
