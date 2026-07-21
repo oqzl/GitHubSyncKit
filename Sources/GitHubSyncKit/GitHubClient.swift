@@ -129,7 +129,26 @@ public actor GitHubClient {
     }
 
     public func putFile(owner: String, repository: String, path: String, data: Data, message: String, branch: String, expectedSHA: String? = nil, author: GitHubCommitIdentity? = nil) async throws -> GitHubCommitResult {
-        struct Body: Encodable { let message, content, branch: String; let sha: String?; let author: GitHubCommitIdentity? }
+        struct Body: Encodable {
+            let message, content, branch: String
+            let sha: String?
+            let author: GitHubCommitIdentity?
+
+            enum CodingKeys: String, CodingKey { case message, content, branch, sha, author }
+
+            func encode(to encoder: Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                try container.encode(message, forKey: .message)
+                try container.encode(content, forKey: .content)
+                try container.encode(branch, forKey: .branch)
+                if let sha {
+                    try container.encode(sha, forKey: .sha)
+                }
+                if let author {
+                    try container.encode(author, forKey: .author)
+                }
+            }
+        }
         struct Response: Decodable { struct Commit: Decodable { let sha: String }; struct Content: Decodable { let sha: String }; let commit: Commit; let content: Content? }
         let body = Body(message: message, content: data.base64EncodedString(), branch: branch, sha: expectedSHA, author: author)
         let (value, rate): (Response, GitHubRateLimit) = try await http.request("PUT", path: "repos/\(owner)/\(repository)/contents/\(path)", body: body)

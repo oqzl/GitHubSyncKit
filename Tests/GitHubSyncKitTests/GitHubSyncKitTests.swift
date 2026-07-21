@@ -37,6 +37,57 @@ final class GitHubSyncKitTests: XCTestCase {
             "sha": "base"
         ])
     }
+
+    func testPutFileOmitsOptionalFieldsWhenCreatingAFile() async throws {
+        let transport = MockTransport(
+            data: #"{"commit":{"sha":"commit"},"content":{"sha":"content"}}"#.data(using: .utf8)!
+        )
+        let client = GitHubClient(tokenStore: EmptyTokenStore(), transport: transport)
+
+        _ = try await client.putFile(
+            owner: "octo",
+            repository: "notes",
+            path: "notes/inbox/new.md",
+            data: Data("hello".utf8),
+            message: "Create note",
+            branch: "main"
+        )
+
+        let request = await transport.request
+        XCTAssertEqual(request?.httpMethod, "PUT")
+        let body = try XCTUnwrap(request?.httpBody)
+        XCTAssertEqual(try JSONSerialization.jsonObject(with: body) as? [String: String], [
+            "message": "Create note",
+            "content": "aGVsbG8=",
+            "branch": "main"
+        ])
+    }
+
+    func testPutFileIncludesSHAWhenUpdatingAFile() async throws {
+        let transport = MockTransport(
+            data: #"{"commit":{"sha":"commit"},"content":{"sha":"content"}}"#.data(using: .utf8)!
+        )
+        let client = GitHubClient(tokenStore: EmptyTokenStore(), transport: transport)
+
+        _ = try await client.putFile(
+            owner: "octo",
+            repository: "notes",
+            path: "notes/inbox/existing.md",
+            data: Data("hello".utf8),
+            message: "Update note",
+            branch: "main",
+            expectedSHA: "old-sha"
+        )
+
+        let request = await transport.request
+        let body = try XCTUnwrap(request?.httpBody)
+        XCTAssertEqual(try JSONSerialization.jsonObject(with: body) as? [String: String], [
+            "message": "Update note",
+            "content": "aGVsbG8=",
+            "branch": "main",
+            "sha": "old-sha"
+        ])
+    }
 }
 
 private actor MockTransport: GitHubHTTPTransport {
